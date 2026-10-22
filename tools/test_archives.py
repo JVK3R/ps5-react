@@ -454,6 +454,15 @@ def main():
   (staging/".ps5-react-stage").write_text("P5ST001:"+hashlib.sha256(identity.encode()).hexdigest()+"\n")
   assert run("interrupted",[zip])[0]=="completed"
   assert (root/"interrupted/game.ffpfsc").read_bytes()==DATA
+  # 0.5.1: the earlier run's staging is set aside (.discard) before it is cleared, and nothing of it stays.
+  assert not (root/"interrupted.extracting").exists() and not (root/"interrupted.extracting.discard").exists()
+  # A clear cut off (the app closed during it) leaves a .discard, never ownerless staging; the next run clears it.
+  staging=root/"cutoff.extracting";staging.mkdir();(staging/"unfinished").write_bytes(b"partial")
+  (staging/".ps5-react-stage").write_text("P5ST001:"+hashlib.sha256(identity.encode()).hexdigest()+"\n")
+  left=root/"cutoff.extracting.discard";(left/"deep").mkdir(parents=True);(left/"deep/rest").write_bytes(b"x")
+  assert run("cutoff",[zip])[0]=="completed"
+  assert (root/"cutoff/game.ffpfsc").read_bytes()==DATA
+  assert not left.exists() and not staging.exists()
   orphan=root/"orphan.extracting";orphan.mkdir();(orphan/"keep").write_bytes(b"unowned")
   assert run("orphan",[zip])[0]=="failed"
   assert (orphan/"keep").read_bytes()==b"unowned"

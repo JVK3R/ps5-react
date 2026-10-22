@@ -254,8 +254,10 @@ bool empty_directory(const std::string& path) {
 }
 // Removes what is under `path` without following links. Names come from the host's listing: opendir
 // and the *at calls are unusable in a console title.
-bool clear_directory(const std::string& path, unsigned depth = 0) {
-  if (depth > max_depth) return false;
+// `stop` (a job's cancel flag) ends a long clear early, returning false: a game's thousands of files take
+// minutes to go on the console.
+bool clear_directory(const std::string& path, unsigned depth = 0, const std::atomic<bool>* stop = nullptr) {
+  if (depth > max_depth || (stop && *stop)) return false;
   std::vector<std::string> names;
   if (!list_directory(path.c_str(), [](const char* name, void* out) { static_cast<std::vector<std::string>*>(out)->emplace_back(name); }, &names))
     return false;
@@ -264,8 +266,9 @@ bool clear_directory(const std::string& path, unsigned depth = 0) {
     const std::string child = path + "/" + name;
     struct stat st;
     if (lstat(child.c_str(), &st)) return false;
+    if (stop && *stop) return false;
     if (S_ISDIR(st.st_mode)) {
-      if (!clear_directory(child, depth + 1) || rmdir(child.c_str())) return false;
+      if (!clear_directory(child, depth + 1, stop) || rmdir(child.c_str())) return false;
     } else if (unlink(child.c_str())) {
       return false;
     }
@@ -327,13 +330,27 @@ bool recover(Job& job, const std::string& identity) {
   return true;
 }
 // Removes staging left by an interrupted run of this same extraction.
-bool restart_staging(const std::string& staging, const struct stat& expected) {
+// MODIFIED (0.5.1): an earlier run's staging is first renamed aside, <staging>.discard, in one step, then
+// cleared there. Cleared in place, its ownership record could go before its files (the app closed during
+// the minutes a game's files take), and the next run refused the staging as another extraction's; and the
+// clear did not hear "cancel", so a cancel waited it out. An earlier discard is cleared first; `stop` ends
+// either clear (false: the discard stays, named as one, and the next run clears it).
+bool clear_discard(const std::string& discard, const std::atomic<bool>* stop) {
+  struct stat st;
+  if (lstat(discard.c_str(), &st)) return true;
+  if (!S_ISDIR(st.st_mode)) return !unlink(discard.c_str());
+  return clear_directory(discard, 0, stop) && !rmdir(discard.c_str());
+}
+bool restart_staging(const std::string& staging, const struct stat& expected, const std::atomic<bool>* stop = nullptr) {
   const int previous = open(staging.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
   struct stat opened;
   const bool owned = previous >= 0 && !fstat(previous, &opened) && opened.st_dev == expected.st_dev && opened.st_ino == expected.st_ino;
-  const bool cleared = owned && clear_directory(staging);
   if (previous >= 0) close(previous);
-  return cleared && !rmdir(staging.c_str());
+  if (!owned) return false;
+  const std::string discard = staging + ".discard";
+  if (!clear_discard(discard, stop)) return false;
+  if (rename(staging.c_str(), discard.c_str())) return false;
+  return clear_discard(discard, stop);
 }
 // The SHA-256 is taken from the blocks as they are written. A file that arrives out of order or with
 // holes is hashed by reading it back.
@@ -683,7 +700,7 @@ std::string staging_path(const std::string& destination, unsigned attempt) {
 }
 // Staging a silent worker left in an earlier launch, with this extraction's ownership record or none. The
 // first staging is restarted as usual unless the set is extracted already.
-void remove_leftover_staging(const Request& request, const std::string& identity) {
+void remove_leftover_staging(const Request& request, const std::string& identity, const std::atomic<bool>* stop = nullptr) {
   const auto leftover = [&](const std::string& staging) {
     struct stat st;
     std::string owner;
@@ -691,12 +708,20 @@ void remove_leftover_staging(const Request& request, const std::string& identity
     const bool recorded = read_metadata(staging + "/" + stage_name, owner);
     if ((recorded && owner != "P5ST001:" + identity + "\n" && owner != "P5ST001:" + stream_identity(request) + "\n") ||
         (!recorded && !empty_directory(staging))) return true;
-    if (clear_directory(staging)) rmdir(staging.c_str());
+    // Set aside first, as restart_staging does, so a cut-off clear never leaves staging without its record.
+    const std::string discard = staging + ".discard";
+    if (clear_discard(discard, stop) && !rename(staging.c_str(), discard.c_str())) clear_discard(discard, stop);
     return true;
   };
   struct stat st;
   if (!lstat(request.destination.c_str(), &st)) leftover(staging_path(request.destination, 0));
   for (unsigned attempt = 1; leftover(staging_path(request.destination, attempt)); attempt++) {}
+}
+// What earlier runs set aside (<staging>.discard, restart_staging), cleared before this one starts.
+bool clear_discards(const Request& request, const std::atomic<bool>& stop) {
+  for (unsigned attempt = 0; attempt < 4; attempt++)
+    if (!clear_discard(staging_path(request.destination, attempt) + ".discard", &stop)) return false;
+  return true;
 }
 void remove_owned_staging(const std::string& staging, const struct stat& owned) {
   struct stat current;
@@ -719,7 +744,11 @@ void run(const std::shared_ptr<Job>& pointer) {
     fail(job, "Archive source is missing or not a regular file.");
     return;
   }
-  if (!attempt) remove_leftover_staging(request, identity);
+  if (!attempt) remove_leftover_staging(request, identity, &job.cancelled);
+  if (!clear_discards(request, job.cancelled)) {
+    fail(job, "Cannot clear an earlier extraction's files; files preserved.");
+    return;
+  }
   if (!lstat(request.destination.c_str(), &st)) {
     if (S_ISDIR(st.st_mode) && recover(job, identity)) {
       std::lock_guard lock(job.mutex);
@@ -756,7 +785,7 @@ void run(const std::shared_ptr<Job>& pointer) {
       fail(job, "Staging belongs to another extraction; files preserved.");
       return;
     }
-    if (!restart_staging(staging, st)) {
+    if (!restart_staging(staging, st, &job.cancelled)) {
       fail(job, "Cannot restart owned extraction staging.");
       return;
     }
