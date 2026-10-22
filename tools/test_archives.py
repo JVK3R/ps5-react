@@ -137,7 +137,7 @@ def main():
    for p in [tree,*tree.rglob("*")]:
     if p.name.startswith(".ps5-react-"):continue
     mode=p.stat().st_mode&0o777
-    assert mode==(0o777 if p.is_dir() else 0o666),(p,oct(mode))
+    assert mode==0o777,(p,oct(mode))  # 0.5.1: files too, so a game's eboot.bin can be executed
   app=root/"app.zip"
   with zipfile.ZipFile(app,"w") as z:z.writestr("PPSA01473-app/sce_sys/param.json","{}");z.writestr("PPSA01473-app/eboot.bin",DATA)
   assert run("zip-app",[app])[0]=="completed"

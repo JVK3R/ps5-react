@@ -118,12 +118,16 @@ bool plain_directory(const std::string& path) {
 // The game runs as another user than this app and cannot launch from a tree only its owner reads, so
 // what an extraction writes is open to everyone whatever this process's umask, as rar-extract's output is.
 // chmod by path: titles already use it (fs.chmod); fchmod is unproven on the console.
+// MODIFIED (Jobee'sLair 0.5.1): files are 0777, not 0666. ShellCore starts a game by executing its eboot.bin,
+// and one without the execute bit is refused before any process exists: the launch dies silently (the home
+// screen's "Can't start the game or app"), with every file in place. Apps installed over FTP or from an
+// exFAT image are 0777 throughout, so an extraction's output is too.
 bool make_directory(const std::string& path) {
   return !mkdir(path.c_str(), 0777) && !chmod(path.c_str(), 0777);
 }
 int create_file(const std::string& path) {
-  const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0666);
-  if (fd >= 0 && chmod(path.c_str(), 0666)) {
+  const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0777);
+  if (fd >= 0 && chmod(path.c_str(), 0777)) {
     const int error = errno;
     close(fd);
     errno = error;
