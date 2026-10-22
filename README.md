@@ -1,9 +1,12 @@
 > [!NOTE]
-> **This copy of PS5 React is vendored inside Jobee'sLair** (version 0.1.0, title ID `PPSA99471`,
-> created by JVK3R), an open-source PS5 homebrew download manager in active development. For the app
-> itself, see the [project README](../README.md) and the [installation guide](../INSTALLATION-GUIDE.md).
-> This file documents the framework and is kept as upstream wrote it, apart from this note.
-> Jobee'sLair users: download only content you legally own or have explicit permission to access.
+> **This is the continuation of PS5 React.** half144 published the framework as an experimental
+> v0.1.0 on 5 October 2026; the original repository, and the account with it, disappeared from GitHub
+> around 13 October 2026. This repository carries it on: the same framework, with the fixes and
+> native additions made for [Jobee'sLair](https://github.com/JVK3R/JobeesLair), the app it has been
+> built and tested through since, under the same GPL-3.0-or-later terms and with half144's attribution
+> kept as the license asks. What changed since v0.1.0 is in [CHANGELOG.md](CHANGELOG.md). Maintained
+> by JVK3R; issues and pull requests are welcome here. The rest of this file is the framework's own
+> documentation, as upstream wrote it, with the clone address updated.
 
 <p align="center">
   <img src="docs/brand/logo.png" width="160" alt="PS5 React — JSX brackets and a framebuffer pixel inside a display">
@@ -72,7 +75,7 @@ The supported development environment is **macOS on Apple Silicon**.
 2. Clone the project and install dependencies:
 
    ```sh
-   git clone https://github.com/half144/ps5-react.git
+   git clone https://github.com/JVK3R/ps5-react.git
    cd ps5-react
    python3 -m venv .venv
    source .venv/bin/activate
@@ -696,7 +699,8 @@ excluded from version control.
 
 ## Credits and license
 
-Created by **[half144](https://github.com/half144)** and PS5 React contributors.
+Created by **half144** and PS5 React contributors (the original repository, github.com/half144/ps5-react,
+is gone; this repository continues it, maintained by [JVK3R](https://github.com/JVK3R)).
 Built on [Embedded React](https://github.com/TheMasterCoder007/embedded-react),
 [ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui),
 [ps5-opengl](https://github.com/blackbearreloaded/ps5-opengl),
