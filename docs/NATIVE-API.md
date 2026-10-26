@@ -17,7 +17,7 @@ Controller.setLightBar('#38bdf8');
 ## Contract
 
 The modules in `runtime/js/native.js` wrap `globalThis.__ps5ReactNative`, which
-each host installs before the bundle runs. Its exact shape (ABI v15) is
+each host installs before the bundle runs. Its exact shape (ABI v22) is
 documented in [`native/shared/host_api.hpp`](../native/shared/host_api.hpp).
 `native/shared/host_api.cpp` implements the filesystem with POSIX and the object
 itself; `native/ps5/` and `native/desktop/` implement the platform functions.
@@ -160,6 +160,12 @@ PS5 builds require `networking: true` and `filesystemAccess: "console"`; desktop
 networking is available by default. See [NETWORKING.md](NETWORKING.md) for
 options, resource limits, errors, lifecycle and the hardware-validation gap.
 
+`Downloads.setRateLimit(bytesPerSecond)` (ABI v21) sets the bytes per second all file
+downloads share, `0` for no limit. It applies at once, to running downloads too; one
+enqueued with `unlimited: true` (an app's own update, say) is exempt. A capped download
+opens about one connection per MB/s of the cap, so each still gets bytes often enough to
+stay above curl's low-speed cutoff.
+
 ## LocalNetwork (ABI v9)
 
 `LocalNetwork.broadcast({port, message, timeoutMs, maxReplies, signal})` sends one UDP
@@ -213,6 +219,12 @@ rebinding). A million PINs are few for one fixed code, so the worker throttles g
 wrong PINs per device, then 2, 4, 8, 16 and 30 s waits (429 with `Retry-After`), and
 after 20 wrong PINs from anywhere sign-in answers 423 until the server is started again;
 signed-in phones keep working.
+
+`start` also takes a `session`: 16 to 64 characters of `a`–`z` and `0`–`9`, such as the 26
+that `LocalServer.token()` returns. With one, every phone that signs in with the right PIN
+gets that same cookie, and it is accepted from the first request, so an app that saves it
+with its PIN keeps its phones signed in across restarts (and can share it with a helper that
+serves the page while the app is closed). Make a new one with each new PIN.
 
 `status()` reports `starting`, then `listening` with the `port` it bound and the
 `address` it looked up, or `failed` with every port's reason and errno (`port 34177: in
@@ -489,6 +501,25 @@ The updater writes its outcome to `<controlDir>/result.txt` as `outcome=` (`swap
 then `applied`, `rolledback`, `refused` or `failed`), `version=` and `reason=`, and logs each step to
 `<controlDir>/updater.log`. The desktop preview runs from no image and returns its reason.
 `tools/test_updater.py` runs the payload on the desktop against a stand-in for ShadowMount+.
+
+## Payloads (ABI v22)
+
+`Payloads.send(path, {port, request, answer})` sends an ELF to the console's payload loader on
+`127.0.0.1`, the way the engine sends its own `relauncher.elf` and `updater.elf`. `path` is an
+absolute path the app can read (`/app0/…` for one it ships, `/data/…` for one it downloaded);
+`port` is `9021` (an ELF loader, the default) or `9020` (a loader of raw `.bin` payloads);
+`request`, at most 4 KiB, follows as the payload's standard input. With `answer: true` the
+payload's first line back is returned, after at most 3 s. The loader gives the payload that
+socket as its stdout and stderr, so a system library's own log line (`[SceLncUtil] …`) can
+come before the answer: up to 8 of those are skipped. It returns `{ok: true, answer}`, or
+`{ok: false, error}` when the file or the loader is not there, and blocks for at most a few
+seconds, so call it from an event, not a render. The desktop preview opens a plain TCP
+connection, for tests against a stand-in loader.
+
+An app can build payloads of its own: each entry of app.json's `payloads` (at most 8) names a
+C `source` in the app folder and the `.elf` it becomes (`name`), with optional `libs` (`-l…`
+linker flags). They are built with the PS5 Payload SDK, like the engine's own, and shipped in
+the app folder.
 
 ## Desktop preview behavior
 
