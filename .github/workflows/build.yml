@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang-18 llvm-18 llvm-18-dev cmake ninja-build python3-venv \
-            zlib1g-dev build-essential pkg-config unzip zip curl zstd
+            zlib1g-dev build-essential pkg-config unzip zip curl zstd nasm
           # The build wants unversioned clang and llvm-config in --llvm.
           for tool in clang clang++ llvm-config; do
             sudo ln -sf "/usr/bin/$tool-18" "/usr/local/bin/$tool"
