@@ -376,7 +376,7 @@ def main():
     shutil.copy2(ROOT / "docs/DEPENDENCIES.md", notices / "SOURCES.md")
     run([host_tool, "self", "--inspect", "--file", app / "eboot.bin"])
     run([host_tool, "self", "--inspect", "--file", app / "sce_module/libc.prx"])
-    receipts = {"title": TITLE, "app": app_dir.name, "framework_version": "0.1.0",
+    receipts = {"title": TITLE, "app": app_dir.name, "framework_version": "0.2.0",
                 "hardware_tested": False, "dependencies": LOCK,
                 "config": config, "bundle_sha256": {d.name: digest(d / "app.bundle.js") for d in layout_dirs},
                 "llvm_version": subprocess.check_output([llvm / "clang", "--version"], text=True).splitlines()[0],

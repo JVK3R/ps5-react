@@ -136,9 +136,9 @@ The Inter font and bundled third-party license texts retain their own terms.
 `LICENSE`, `LICENSE-ATTRIBUTION`, `NOTICE`, `licenses/`, and generated
 `dist/<TITLE_ID>/notices/` preserve credits and licensing information.
 
-## Initial public release
+## Source releases
 
-Version 0.1.0 is a **source release**. It does not distribute prebuilt PS5
+Versions 0.1.0 and 0.2.0 are **source releases**. They do not distribute prebuilt PS5
 executables or SDK libraries. The source archive and pinned build instructions
 are available from the repository and GitHub release.
 

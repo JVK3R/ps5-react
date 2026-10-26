@@ -82,7 +82,7 @@ def desktop(app, test=False, target="ps5-react-preview", resolution=None):
 
 
 def doctor():
-    print("PS5 React 0.1 — macOS developer environment")
+    print("PS5 React 0.2 — macOS developer environment")
     missing = []
     for command in ("python3", "node", "npm", "cmake", "git", "clang++"):
         path = shutil.which(command)
