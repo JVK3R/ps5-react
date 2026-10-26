@@ -8,6 +8,10 @@
 > by JVK3R; issues and pull requests are welcome here. The rest of this file is the framework's own
 > documentation, as upstream wrote it, with the clone address updated.
 
+[![build](https://github.com/JVK3R/ps5-react/actions/workflows/build.yml/badge.svg)](https://github.com/JVK3R/ps5-react/actions/workflows/build.yml)
+Every push builds the starter and video-lab for the PS5 from a clean checkout, and once a week every pinned
+source is downloaded again, so a dependency that disappears shows up here first.
+
 <p align="center">
   <img src="docs/brand/logo.png" width="160" alt="PS5 React — JSX brackets and a framebuffer pixel inside a display">
 </p>

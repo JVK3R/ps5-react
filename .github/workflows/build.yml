@@ -1,0 +1,78 @@
+name: build
+
+# Every push and pull request builds the starter app for the PS5 from a clean checkout and runs the
+# JavaScript tests. Once a week the build also downloads every source the lock file pins again, from where
+# it pins it, instead of reusing the cache: a dependency that disappears is noticed here, not in someone's
+# release build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ps5:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 llvm-18 llvm-18-dev cmake ninja-build python3-venv \
+            zlib1g-dev build-essential pkg-config unzip zip curl zstd
+          # The build wants unversioned clang and llvm-config in --llvm.
+          for tool in clang clang++ llvm-config; do
+            sudo ln -sf "/usr/bin/$tool-18" "/usr/local/bin/$tool"
+          done
+          clang --version | head -1
+
+      - name: Install the Node and Python dependencies
+        run: |
+          npm ci
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --disable-pip-version-check -r requirements.txt
+          # The build spawns python3 for its own tools, so the venv goes on PATH.
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      # A loader payload on the desktop, against stand-ins for the console's services: before the long builds.
+      - name: Run the payload tests
+        run: python3 tools/test_updater.py
+
+      - name: Cache the downloaded sources
+        # Not on the weekly run, which fetches everything again.
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('dependencies.lock.json') }}
+
+      - name: Build the starter for the PS5
+        run: python3 tools/build_ps5.py --app starter --llvm /usr/bin
+
+      # video-lab reads console files, uses the network and plays video, so its build fetches and compiles
+      # what the starter's leaves out: the filesystem helper, the network ports and FFmpeg.
+      - name: Build video-lab for the PS5
+        run: python3 tools/build_ps5.py --app video-lab --llvm /usr/bin
+
+      # After the build, which checks out Embedded React (patched) where the tests look for it.
+      - name: Run the JavaScript tests
+        run: node --test tools/tailwind/*.test.mjs runtime/js/motion/*.test.mjs runtime/js/focus/*.test.mjs runtime/js/*.test.mjs
+
+      - name: Upload the starter
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5-react-starter
+          path: dist/
+          if-no-files-found: error
