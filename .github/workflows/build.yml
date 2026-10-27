@@ -46,9 +46,11 @@ jobs:
           # The build spawns python3 for its own tools, so the venv goes on PATH.
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
 
-      # A loader payload on the desktop, against stand-ins for the console's services: before the long builds.
+      # The loader payloads on the desktop, against stand-ins for the console's services: before the long builds.
       - name: Run the payload tests
-        run: python3 tools/test_updater.py
+        run: |
+          python3 tools/test_updater.py
+          python3 tools/test_pkg_installer.py
 
       - name: Cache the downloaded sources
         # Not on the weekly run, which fetches everything again.

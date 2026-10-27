@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — PS5 packages
+
+- `Packages.install` takes PS5 packages too, as docs/NATIVE-API.md already said. `pkg-installer.elf` accepted only
+  a PS4 package (`\x7FCNT`) and refused a PS5 one (`\x7FFIH`) as "not a PKG". It now reads the content ID from
+  the CNT header a PS5 package carries at the offset it keeps at 0x58, and hands the file to the install service
+  with no content ID, as ezRemote's installer (ps5-ezremote-dpi) does. A file that is neither is refused as "not
+  a PS4 or PS5 package". Not yet hardware-tested.
+- A failed install's message names the call and the package once: the native reason carries the reason and the
+  code, and the JavaScript task adds the rest (it said both twice).
+- `tools/test_pkg_installer.py` runs the payload on the desktop against a stand-in install service: PS4 and PS5
+  packages, a 4-byte stand-in, a web page, bad offsets, a refusal's code, paths it must not touch.
+- `FileSystem.removeAsync(path, {background: true})` (ABI v23): a clean-up nobody waits on goes to a second
+  worker, beside the first and in its own order. Removals ran one at a time, so a long clean-up (a homebrew
+  app's 19,462 files, minutes on a PS5) held up a cancelled download's few files behind it.
+  `tools/test_removals.py` checks both orders.
+- Focus scrolling: an element focused before its first layout (`autoFocus` as a screen mounts) is revealed once
+  it is laid out, with the least movement; its reveal had no rectangle and did nothing, so a first card below
+  the fold stayed out of view. The top-most focusable element of a `ScrollView`, and one under a
+  `scrollAnchor` at the content's top, show as much of the top as still shows them when they do not fit under
+  it; the least movement, coming back up, kept the top out of reach.
+
 ## 0.2.0 — 2026-10-25
 
 The first release since half144's 0.1.0, and the first from JVK3R/ps5-react, where PS5 React continues since the

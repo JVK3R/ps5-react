@@ -17,7 +17,7 @@ Controller.setLightBar('#38bdf8');
 ## Contract
 
 The modules in `runtime/js/native.js` wrap `globalThis.__ps5ReactNative`, which
-each host installs before the bundle runs. Its exact shape (ABI v22) is
+each host installs before the bundle runs. Its exact shape (ABI v23) is
 documented in [`native/shared/host_api.hpp`](../native/shared/host_api.hpp).
 `native/shared/host_api.cpp` implements the filesystem with POSIX and the object
 itself; `native/ps5/` and `native/desktop/` implement the platform functions.
@@ -101,7 +101,7 @@ inside it can be read by path. Paths containing `..` components are rejected.
 | `mkdir(path, {recursive})` | — | `recursive` defaults to `false`; folders it creates are 0777 (chmod, best effort), existing ones keep their mode |
 | `remove(path)` | — | A file or an empty directory |
 | `removeTree(path)` | — | A file, or a directory and everything in it; symbolic links are unlinked, never followed. Synchronous: for small app-owned trees |
-| `removeAsync(path)` | `Promise<void>` | What `removeTree` removes, on a worker thread, one path at a time in the order asked. Resolves once the path is gone, or if it never existed; rejects with an `Error` naming the path and the system error. For large files and trees, whose removal holds the screen for seconds |
+| `removeAsync(path, {background})` | `Promise<void>` | What `removeTree` removes, on a worker thread, one path at a time in the order asked. Resolves once the path is gone, or if it never existed; rejects with an `Error` naming the path and the system error. For large files and trees, whose removal holds the screen for seconds. `background: true` (ABI v23) is for a clean-up nobody waits on: it goes to a second worker beside the first, in its own order, so a long one never holds up the others |
 | `copyAsync(from, to, {verify, resume, receipt})` | task | A file, or a directory and everything in it (symbolic links copied as links), on a worker thread, one copy at a time in the order asked. Written as `<to>.partial`, read back against the source (chunk hashes taken while copying; bytes an earlier run wrote are compared with the source read again), then renamed to `to`, which must not exist. A stopped copy keeps `<to>.partial`: with `resume` (default `true`) whole files stay and a cut file continues from its last whole 32 MiB chunk; a chunk found different is cut off so the next run copies it again. `verify: false` compares sizes only. `receipt: true` fails unless a file's download receipt (`<from>.complete`), when it has one, names that very file. Returns a task as `Downloads.enqueue` does (`done`, `cancel`, `subscribe`, `snapshot`); snapshots carry `state` (`copying`, `verifying`), `written`, `verified`, `total`, `files` and `receipt` (`''`, `'none'`, `'matched'`) |
 | `rename(from, to)` | — | Both are app paths |
 | `chmod(path, mode)` | — | Permission bits, such as `0o777`; a file or directory the console's own services must read (a title's files) needs them open to every user |
