@@ -85,7 +85,7 @@ three.
 
    ```sh
    sudo apt install python3 python3-venv git cmake clang-18 lld-18 llvm-18 nasm zstd unzip zip \
-     libsdl2-dev libcurl4-openssl-dev libarchive-dev liblzma-dev libssl-dev zlib1g-dev
+     libsdl2-dev libcurl4-openssl-dev libarchive-dev libarchive-tools liblzma-dev libssl-dev zlib1g-dev
    ```
 
    On Windows, clone inside WSL's own filesystem (`~/`), not under `/mnt/c`: builds there are many times
