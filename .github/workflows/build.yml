@@ -1,7 +1,7 @@
 name: build
 
-# Every push and pull request builds the starter app for the PS5 from a clean checkout and runs the
-# JavaScript tests. Once a week the build also downloads every source the lock file pins again, from where
+# Every push and pull request builds the starter app for the PS5 from a clean checkout, and runs every test on
+# Linux (the tests job: npm test). Once a week the build also downloads every source the lock file pins again, from where
 # it pins it, instead of reusing the cache: a dependency that disappears is noticed here, not in someone's
 # release build.
 on:
@@ -78,3 +78,58 @@ jobs:
           name: ps5-react-starter
           path: dist/
           if-no-files-found: error
+
+  # The desktop preview's checks on Linux, as npm test runs them anywhere: every native test (archives, network,
+  # images, removals, copies, the updater and package installer payloads, video, text, the local server and its
+  # event streams), the JavaScript tests, and the starter's scripted UI test, single-core and across the render
+  # workers. The same as a developer's machine on Linux or WSL 2.
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the toolchain and the preview's libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 llvm-18 cmake ninja-build python3-venv pkg-config nasm zstd unzip zip curl \
+            libsdl2-dev libcurl4-openssl-dev libarchive-dev liblzma-dev libssl-dev zlib1g-dev \
+            xvfb libgl1-mesa-dri
+          for tool in clang clang++; do
+            sudo ln -sf "/usr/bin/$tool-18" "/usr/local/bin/$tool"
+          done
+
+      - name: Install the Node and Python dependencies
+        run: |
+          npm ci
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --disable-pip-version-check -r requirements.txt
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Cache the downloaded sources
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-desktop-${{ hashFiles('dependencies.lock.json') }}
+
+      # GCC's -Werror stops on warnings clang does not raise in third-party headers; the preview opens in a virtual
+      # display with no sound.
+      - name: Run npm test
+        env:
+          CC: clang
+          CXX: clang++
+          SDL_AUDIODRIVER: dummy
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" npm test
+
+      - name: Keep the test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: .build/**/*.log
